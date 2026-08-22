@@ -4,38 +4,46 @@ on:
   pull_request:
 
 jobs:
-  python-syntax:
+  python-engine:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Compile-check all Python files
+      - name: Install CHP engine
+        run: pip install -r engine/requirements.txt
+      - name: Compile-check engine Python
         run: |
           python - <<'PYEOF'
           import ast, os, sys
           bad = []
-          SKIP = {'.git','node_modules','venv','.venv','target','dist','build','__pycache__','notebooks'}
-          for root, dirs, files in os.walk('.'):
-              dirs[:] = [d for d in dirs if d not in SKIP]
+          for root, dirs, files in os.walk('engine'):
+              dirs[:] = [d for d in dirs if d not in {'__pycache__', '.venv'}]
               for f in files:
                   if f.endswith('.py'):
                       p = os.path.join(root, f)
                       try:
-                          ast.parse(open(p,'rb').read(), filename=p)
+                          ast.parse(open(p, 'rb').read(), filename=p)
                       except SyntaxError as e:
                           bad.append(f"{p}:{e.lineno}: {e.msg}")
-          print("\n".join(bad))
+          print('\n'.join(bad) or 'ok')
           sys.exit(1 if bad else 0)
           PYEOF
+      - name: Bridge protocol tests
+        run: python3 engine/test_bridge.py
 
   typescript:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '23'
+      - run: pip install -r engine/requirements.txt
       - run: npm install --no-audit --no-fund
       - run: npx tsc --noEmit
+      - run: npm test
