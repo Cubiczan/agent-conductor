@@ -26,9 +26,9 @@
   "mcpName": "io.github.cubiczan/agent-conductor",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Cubiczan/agent-conductor.git"
+    "url": "https://github.com/Cubiczan/agent-conductor.git"
   },
-  "homepage": "https://github.com/Cubiczan/agent-conductor#readme",
+  "homepage": "https://github.com/Cubiczan/agent-conductor.git",
   "bugs": {
     "url": "https://github.com/Cubiczan/agent-conductor/issues"
   },
