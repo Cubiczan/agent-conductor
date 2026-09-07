@@ -23,6 +23,15 @@
     "governance"
   ],
   "license": "MIT",
+  "mcpName": "io.github.cubiczan/agent-conductor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cubiczan/agent-conductor.git"
+  },
+  "homepage": "https://github.com/Cubiczan/agent-conductor.git",
+  "bugs": {
+    "url": "https://github.com/Cubiczan/agent-conductor/issues"
+  },
   "engines": {
     "node": ">=23.0.0"
   },

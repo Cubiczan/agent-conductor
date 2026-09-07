@@ -1,0 +1,10 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.cubiczan/agent-conductor",
+  "description": "AGENTS.md + skills MCP with CHP R0 gate and adversary decision tools.",
+  "repository": {
+    "url": "https://github.com/Cubiczan/agent-conductor",
+    "source": "github"
+  },
+  "version": "0.1.0"
+}
