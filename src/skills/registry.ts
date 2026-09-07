@@ -7,16 +7,17 @@
  * SKILL.md skills instead of compiled-in TypeScript skill classes.
  */
 
-import { discoverSkills, loadSkill } from "./loader.ts";
+import { discoverSkillsFromRoots, loadSkill } from "./loader.ts";
 import type { LoadedSkill, SkillMetadata } from "./types.ts";
 
 export class SkillRegistry {
   private skills = new Map<string, SkillMetadata>();
 
-  /** Re-scan skill roots for a project and replace the registry contents. */
-  refresh(projectRoot: string): SkillMetadata[] {
+  /** Re-scan skill roots for one project or a declared multi-root list. */
+  refresh(projectRootOrRoots: string | readonly string[]): SkillMetadata[] {
+    const roots = typeof projectRootOrRoots === "string" ? [projectRootOrRoots] : projectRootOrRoots;
     this.skills.clear();
-    for (const metadata of discoverSkills(projectRoot)) {
+    for (const metadata of discoverSkillsFromRoots(roots)) {
       this.skills.set(metadata.name, metadata);
     }
     return this.getAll();

@@ -19,6 +19,8 @@ export interface LayerRule {
   readonly role: string;
   readonly do: string;
   readonly dont: string;
+  /** Declared root id when the row came from a multi-root compile. */
+  readonly root?: string;
 }
 
 /** A named verification gate: shell commands that must succeed before handoff. */
@@ -26,6 +28,16 @@ export interface VerificationGate {
   readonly name: string;
   readonly commands: string[];
   readonly notes: string;
+  /** Declared root id when the gate came from a multi-root compile. */
+  readonly root?: string;
+}
+
+/** One declared workspace root after fail-closed resolution. */
+export interface WorkspaceRoot {
+  readonly id: string;
+  readonly path: string;
+  readonly resolved: string;
+  readonly contractPath: string | null;
 }
 
 /** A skill the contract recommends, and when to reach for it. */
@@ -47,4 +59,6 @@ export interface AgentContract {
   readonly skills: SkillRecommendation[];
   readonly outOfScope: string[];
   readonly sections: ContractSection[];
+  /** Present when the contract was compiled from more than one declared root. */
+  readonly roots?: readonly WorkspaceRoot[];
 }

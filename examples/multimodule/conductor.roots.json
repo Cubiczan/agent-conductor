@@ -1,0 +1,7 @@
+{
+  "roots": [
+    { "id": "workspace", "path": "." },
+    { "id": "billing", "path": "modules/billing" },
+    { "id": "shared", "path": "shared" }
+  ]
+}

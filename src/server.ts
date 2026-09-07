@@ -14,27 +14,39 @@
  * (https://codeberg.org/cubiczan/onchainmind, MIT).
  */
 
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { loadContract } from "./contract/parser.ts";
+import { loadWorkspace, resolveWorkspaceRoots, type WorkspaceInput } from "./contract/workspace.ts";
 import { chpBridge } from "./engine/chpBridge.ts";
 import { skillRegistry } from "./skills/registry.ts";
 import { logger } from "./utils/logger.ts";
 
-const CONTRACT_FILENAMES = ["AGENTS.md", "CLAUDE.md", ".agents.md"];
+const workspaceInputShape = {
+  path: z
+    .string()
+    .optional()
+    .describe("AGENTS.md path, project root, or directory containing a roots map"),
+  roots: z
+    .array(z.string())
+    .optional()
+    .describe("Explicit list of workspace roots to walk (fail closed if any is missing)"),
+  rootsFile: z
+    .string()
+    .optional()
+    .describe("Path to a roots map file (JSON object/array or line-oriented id: path)"),
+};
 
-function resolveContractPath(pathOrRoot?: string): string {
-  const base = resolve(pathOrRoot ?? process.cwd());
-  if (base.toLowerCase().endsWith(".md")) return base;
-  for (const filename of CONTRACT_FILENAMES) {
-    const candidate = join(base, filename);
-    if (existsSync(candidate)) return candidate;
-  }
-  throw new Error(
-    `No agent contract found under ${base} (looked for ${CONTRACT_FILENAMES.join(", ")})`,
-  );
+function workspaceInput(args: {
+  path?: string;
+  projectRoot?: string;
+  roots?: string[];
+  rootsFile?: string;
+}): WorkspaceInput {
+  return {
+    path: args.path ?? args.projectRoot,
+    roots: args.roots,
+    rootsFile: args.rootsFile,
+  };
 }
 
 function jsonContent(payload: unknown) {
@@ -61,12 +73,13 @@ export function createServer(): McpServer {
     "contract_load",
     "Compile an AGENTS.md operating manual into a structured agent contract: " +
       "mission, non-negotiable rules, layer responsibilities, verification gates, " +
-      "recommended skills, and out-of-scope list. Pass a file path or a project " +
-      "directory (defaults to the current working directory).",
-    { path: z.string().optional().describe("AGENTS.md path or project root") },
-    async ({ path }) => {
+      "recommended skills, and out-of-scope list. Pass a file path, a project " +
+      "directory, an explicit roots list, or a roots map file (defaults to cwd). " +
+      "Returns a summary without section bodies so callers stay inside progressive-disclosure budgets.",
+    workspaceInputShape,
+    async ({ path, roots, rootsFile }) => {
       try {
-        const contract = loadContract(resolveContractPath(path));
+        const contract = loadWorkspace({ path, roots, rootsFile });
         const { sections, ...summary } = contract;
         return jsonContent({ ...summary, sectionCount: sections.length });
       } catch (error) {
@@ -79,12 +92,17 @@ export function createServer(): McpServer {
     "contract_verification",
     "Return the verification gates from a project's agent contract — the named " +
       "checklists and shell commands that must pass before work is handed off. " +
-      "Run these and confirm success before declaring any task complete.",
-    { path: z.string().optional().describe("AGENTS.md path or project root") },
-    async ({ path }) => {
+      "Run these and confirm success before declaring any task complete. Accepts " +
+      "the same single-root or multi-root inputs as contract_load.",
+    workspaceInputShape,
+    async ({ path, roots, rootsFile }) => {
       try {
-        const contract = loadContract(resolveContractPath(path));
-        return jsonContent({ source: contract.source, gates: contract.gates });
+        const contract = loadWorkspace({ path, roots, rootsFile });
+        return jsonContent({
+          source: contract.source,
+          gates: contract.gates,
+          ...(contract.roots ? { roots: contract.roots } : {}),
+        });
       } catch (error) {
         return errorContent(error);
       }
@@ -95,13 +113,19 @@ export function createServer(): McpServer {
 
   server.tool(
     "skills_list",
-    "Discover SKILL.md skills visible from a project root (project-scope " +
-      ".conductor/.claude/.cursor skill dirs, then personal ones). Returns " +
-      "metadata only (~100 tokens per skill); use skill_load for the full body.",
-    { projectRoot: z.string().optional().describe("Project root (defaults to cwd)") },
-    async ({ projectRoot }) => {
+    "Discover SKILL.md skills visible from a project root or declared multi-root " +
+      "workspace (project-scope .conductor/.claude/.cursor skill dirs per root, " +
+      "then personal ones). Extra source roots outside a module directory are " +
+      "included when declared. Returns metadata only (~100 tokens per skill); " +
+      "use skill_load for the full body.",
+    {
+      projectRoot: z.string().optional().describe("Project root (defaults to cwd)"),
+      ...workspaceInputShape,
+    },
+    async ({ projectRoot, path, roots, rootsFile }) => {
       try {
-        skillRegistry.refresh(resolve(projectRoot ?? process.cwd()));
+        const declared = resolveWorkspaceRoots(workspaceInput({ projectRoot, path, roots, rootsFile }));
+        skillRegistry.refresh(declared.map((root) => root.resolved));
         return jsonContent({ skills: skillRegistry.getSummary() });
       } catch (error) {
         return errorContent(error);
@@ -117,11 +141,15 @@ export function createServer(): McpServer {
     {
       name: z.string().describe("Skill name as returned by skills_list"),
       projectRoot: z.string().optional().describe("Project root (defaults to cwd)"),
+      ...workspaceInputShape,
     },
-    async ({ name, projectRoot }) => {
+    async ({ name, projectRoot, path, roots, rootsFile }) => {
       try {
         if (!skillRegistry.has(name)) {
-          skillRegistry.refresh(resolve(projectRoot ?? process.cwd()));
+          const declared = resolveWorkspaceRoots(
+            workspaceInput({ projectRoot, path, roots, rootsFile }),
+          );
+          skillRegistry.refresh(declared.map((root) => root.resolved));
         }
         const skill = skillRegistry.load(name);
         if (!skill) {

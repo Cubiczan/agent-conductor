@@ -41,6 +41,7 @@ MCP client (Claude Code / Cursor / Copilot / ...)
 ┌────────────────────────────────────────────────┐
 │ TypeScript front end (src/)                    │
 │   contract/parser.ts   AGENTS.md → contract    │
+│   contract/workspace.ts Multi-root merge       │
 │   skills/loader.ts     SKILL.md discovery      │
 │   server.ts            7 MCP tools             │
 └────────────────┬───────────────────────────────┘
@@ -75,7 +76,7 @@ Requirements: **Node 23+** (runs TypeScript natively) and **Python 3.9+**
 git clone https://codeberg.org/cubiczan/agent-conductor.git
 cd agent-conductor
 npm install
-npm test            # 14 TypeScript tests (parser, skills, live engine bridge)
+npm test            # TypeScript tests (parser, skills, multi-root, live engine bridge)
 npm run test:engine # Python bridge protocol tests
 npm run build
 ```
@@ -111,7 +112,11 @@ Then, from any project that has an `AGENTS.md`:
 ### `contract_load`
 
 Compile an AGENTS.md (or CLAUDE.md) into a structured contract. Accepts a
-file path or a project directory; defaults to the current working directory.
+file path, a project directory, an explicit `roots` list, or a `rootsFile`
+map; defaults to the current working directory. Multi-root workspaces emit
+**one** contract whose layer table and verification commands are merged.
+Section bodies stay off this tool so callers remain inside progressive-
+disclosure budgets (metadata + structured fields only).
 
 ```jsonc
 // input
@@ -151,11 +156,14 @@ verbatim, so nothing in an unconventional AGENTS.md is dropped.
 
 Returns only the verification gates — the named checklists and shell commands
 that must pass before work is handed off. Pair it with your agent's workflow:
-run the commands, confirm success, then declare done.
+run the commands, confirm success, then declare done. Accepts the same
+single-root or multi-root inputs as `contract_load`.
 
 ### `skills_list`
 
-Discover SKILL.md skills visible from a project root. Metadata only.
+Discover SKILL.md skills visible from a project root or a declared
+multi-root workspace. Metadata only. Extra source roots outside a module
+directory are included when they appear in the roots list or map.
 
 ```jsonc
 // input
@@ -174,13 +182,14 @@ Discover SKILL.md skills visible from a project root. Metadata only.
 }
 ```
 
-Search order (first hit per skill name wins):
+Search order (first hit per skill name wins). In a multi-root workspace the
+project rows run for each declared root, then personal scopes run once:
 
 | Priority | Path | Scope |
 |----------|------|-------|
-| 1 | `<project>/.conductor/skills/*/SKILL.md` | project |
-| 2 | `<project>/.claude/skills/*/SKILL.md` | project |
-| 3 | `<project>/.cursor/skills/*/SKILL.md` | project |
+| 1 | `<root>/.conductor/skills/*/SKILL.md` | project |
+| 2 | `<root>/.claude/skills/*/SKILL.md` | project |
+| 3 | `<root>/.cursor/skills/*/SKILL.md` | project |
 | 4 | `~/.claude/skills/*/SKILL.md` | personal |
 | 5 | `~/.cursor/skills/*/SKILL.md` | personal |
 
@@ -284,10 +293,92 @@ standards): third-person description with matchable keywords, metadata around
 100 tokens, body under 500 lines, no machine-specific absolute paths, declare
 only the tools the skill needs.
 
-The bundled example —
-[examples/pipeline-pulse](examples/pipeline-pulse/AGENTS.md) — is a complete
-real-world AGENTS.md plus a project-scoped skill, and is what the test suite
-compiles.
+The bundled examples:
+
+- [examples/pipeline-pulse](examples/pipeline-pulse/AGENTS.md) — a complete
+  real-world AGENTS.md plus a project-scoped skill (single-root compile).
+- [examples/multimodule](examples/multimodule/AGENTS.md) — a Gradle-style
+  extra source root: skills live under `shared/`, outside `modules/billing`.
+
+## Monorepo cookbook
+
+Naive loaders walk only the directory they were pointed at. That breaks the
+same way a Gradle module breaks when a `sourceSet` points outside the module
+(`srcDirs = ['src/main/java', '../shared/src']`): the extra tree is real
+work, but it is not inside the module dir.
+
+Declare every extra root. Conductor fails closed if one is missing — it
+will not invent a root or silently skip it.
+
+### 1. Write a roots map
+
+Canonical locations (first hit wins):
+
+| File | When to use |
+|------|-------------|
+| `.conductor/roots.json` | Next to `.conductor/skills` |
+| `conductor.roots.json` | Repo-root convenience |
+| `.conductor/roots` / `conductor.roots` | Line-oriented alternative |
+
+JSON object (ids optional):
+
+```json
+{
+  "roots": [
+    { "id": "workspace", "path": "." },
+    { "id": "billing", "path": "modules/billing" },
+    { "id": "shared", "path": "shared" }
+  ]
+}
+```
+
+JSON array of paths:
+
+```json
+[".", "modules/billing", "shared"]
+```
+
+Line-oriented map (`#` comments allowed):
+
+```text
+workspace: .
+billing: modules/billing
+shared
+```
+
+Relative paths resolve against the map file's directory.
+
+### 2. Keep skills on the extra root
+
+```text
+examples/multimodule/
+├── conductor.roots.json
+├── AGENTS.md                    # workspace layers + `npm test`
+├── modules/billing/AGENTS.md    # module layers + `npm -C modules/billing test`
+└── shared/.conductor/skills/shared-ledger/SKILL.md
+```
+
+`modules/billing` alone cannot see `shared-ledger`. After the map is
+declared, `skills_list` and `skill_load` walk every root, then personal
+scopes, with first-hit-wins shadowing.
+
+### 3. Call the tools
+
+```jsonc
+// Auto-detect a roots map under a directory
+{ "path": "examples/multimodule" }
+
+// Explicit list (relative paths resolve against `path` or cwd)
+{ "path": "examples/multimodule", "roots": [".", "modules/billing", "shared"] }
+
+// Explicit map file
+{ "rootsFile": "examples/multimodule/conductor.roots.json" }
+```
+
+`contract_load` still returns a summary without section bodies;
+`contract_verification` still returns gates only; `skills_list` still
+returns frontmatter metadata. Single-root projects without a map file —
+including `examples/pipeline-pulse` — keep the previous compile path.
 
 ## Project structure
 
@@ -298,7 +389,7 @@ compiles.
 ├── src/
 │   ├── index.ts               # stdio entrypoint
 │   ├── server.ts              # MCP server: 7 tools
-│   ├── contract/              # AGENTS.md → AgentContract compiler
+│   ├── contract/              # AGENTS.md → AgentContract compiler (incl. multi-root)
 │   ├── skills/                # SKILL.md loader + registry
 │   ├── engine/chpBridge.ts    # Python engine client
 │   └── utils/logger.ts        # stderr-only logging (stdout is the transport)
@@ -307,6 +398,7 @@ compiles.
 │   ├── test_bridge.py         # protocol tests
 │   └── vendor/cme/            # vendored CHP core (MIT, byte-identical; see NOTICE.md)
 ├── examples/pipeline-pulse/   # real AGENTS.md fixture + example skill
+├── examples/multimodule/      # extra source root (skills outside the module)
 └── test/                      # node:test suites (run the .ts directly)
 ```
 

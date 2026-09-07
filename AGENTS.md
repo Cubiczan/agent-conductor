@@ -15,6 +15,7 @@ dependency surface near zero, and the MCP stdout stream protocol-clean.
 | Layer | Role | Do | Don't |
 |-------|------|----|-------|
 | `src/contract/` | Contract compilation | Extract recognized AGENTS.md patterns; preserve unknown sections | Drop content the parser doesn't understand |
+| `src/contract/workspace.ts` | Multi-root compile | Walk declared roots; merge layer tables and gates; fail closed | Invent or skip a root the map declared |
 | `src/skills/` | Skill discovery | Frontmatter-only metadata on discovery; bodies on demand | Load bodies eagerly |
 | `src/engine/` + `engine/bridge.py` | Decision engine boundary | Speak newline-delimited JSON over child stdio | Print logs to stdout on either side |
 | `engine/vendor/cme/` | Vendored CHP core | Keep byte-identical to upstream except `__init__.py` | Edit vendored logic — fix upstream instead |

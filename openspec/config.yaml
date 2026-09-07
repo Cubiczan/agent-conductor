@@ -1,0 +1,5 @@
+schema: spec-driven
+context: |
+  Agent Conductor compiles AGENTS.md contracts and SKILL.md skills over MCP.
+  Keep the parser lossless, the dependency surface at the MCP SDK + zod, and
+  stdout protocol-clean.

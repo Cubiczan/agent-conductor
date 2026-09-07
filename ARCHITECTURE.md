@@ -19,6 +19,7 @@ MCP client (Claude Code / Cursor / Copilot / ...)
 │ TypeScript front end (src/)                    │
 │                                                │
 │  contract/parser.ts   AGENTS.md → AgentContract│
+│  contract/workspace.ts Multi-root merge        │
 │  skills/loader.ts     SKILL.md discovery       │
 │  skills/registry.ts   register / load on demand│
 │  server.ts            7 MCP tools              │
@@ -62,13 +63,24 @@ Unrecognized sections are preserved verbatim in `sections`, so the compiled
 form is lossless. Zero dependencies — a small line-walker that is
 fence-aware (headings inside code blocks don't split sections).
 
+`workspace.ts` walks an explicit roots list or map file (`.conductor/roots.json`,
+`conductor.roots.json`, or a line-oriented sibling), compiles every AGENTS.md
+it finds, and emits **one** contract whose layer table and verification
+commands are the concatenation of every root. Extra source roots — the
+Gradle `sourceSet` case where skills live outside a module directory — are
+visible when declared. A missing declared root fails closed; the loader
+does not invent or skip roots. A directory with no roots map still compiles
+as a single root, so `examples/pipeline-pulse` is unchanged.
+
 ### Skill loader + registry (`src/skills/`)
 
 Implements progressive disclosure over the SKILL.md convention:
 
 - **Discovery** scans, in shadowing order: `.conductor/skills`,
-  `.claude/skills`, `.cursor/skills` (project), then `~/.claude/skills`,
-  `~/.cursor/skills` (personal). First hit per skill name wins.
+  `.claude/skills`, `.cursor/skills` (project) for each declared root, then
+  `~/.claude/skills`, `~/.cursor/skills` (personal, once). First hit per
+  skill name wins. Multi-root workspaces therefore resolve skills that live
+  outside a module directory.
 - **Metadata** comes from frontmatter only (name, description, version,
   tools) — what `skills_list` returns, cheap enough to put wholesale in a
   model's context.
@@ -132,12 +144,14 @@ the server's stderr. The subprocess is reused across calls.
 | `engine/vendor/cme/` | [consensus-hardening-protocol](https://codeberg.org/cubiczan/consensus-hardening-protocol) | MIT |
 | `src/server.ts`, `src/skills/registry.ts` (shape) | [onchainmind](https://codeberg.org/cubiczan/onchainmind) | MIT |
 | `examples/pipeline-pulse/AGENTS.md` | Pipeline Pulse CRM operating manual | fixture |
+| `examples/multimodule/` | Gradle-style extra source root | fixture |
 
 ## Testing
 
 - `npm test` — node:test, runs the TypeScript directly (Node 23+ type
   stripping; `erasableSyntaxOnly` keeps the source strippable): contract
-  parser against the real fixture and edge cases, skill loader/registry,
-  and the live engine bridge end to end (spawns Python).
+  parser against the real fixtures and edge cases (including the
+  multi-module extra-source-root fixture), skill loader/registry, and the
+  live engine bridge end to end (spawns Python).
 - `npm run test:engine` — Python-side protocol tests: happy paths, unknown
   method, missing params.

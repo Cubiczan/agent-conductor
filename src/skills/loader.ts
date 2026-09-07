@@ -13,16 +13,27 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { LoadedSkill, SkillMetadata, SkillScope } from "./types.ts";
 
-/** Skill directories, in shadowing order (first hit wins per skill name). */
-export function skillRoots(projectRoot: string): Array<{ dir: string; scope: SkillScope }> {
-  const home = homedir();
+/** Project-scoped skill directories for one root, in shadowing order. */
+export function projectSkillRoots(projectRoot: string): Array<{ dir: string; scope: SkillScope }> {
   return [
     { dir: join(projectRoot, ".conductor", "skills"), scope: "project" },
     { dir: join(projectRoot, ".claude", "skills"), scope: "project" },
     { dir: join(projectRoot, ".cursor", "skills"), scope: "project" },
+  ];
+}
+
+/** Personal skill directories (scanned once, after every project root). */
+export function personalSkillRoots(): Array<{ dir: string; scope: SkillScope }> {
+  const home = homedir();
+  return [
     { dir: join(home, ".claude", "skills"), scope: "personal" },
     { dir: join(home, ".cursor", "skills"), scope: "personal" },
   ];
+}
+
+/** Skill directories, in shadowing order (first hit wins per skill name). */
+export function skillRoots(projectRoot: string): Array<{ dir: string; scope: SkillScope }> {
+  return [...projectSkillRoots(projectRoot), ...personalSkillRoots()];
 }
 
 // ─── Frontmatter ─────────────────────────────────────────────────────────────
@@ -91,18 +102,40 @@ function readSkillDir(dir: string, skillName: string, scope: SkillScope): SkillM
   };
 }
 
-/** Discover all skills visible from a project root. Metadata only. */
-export function discoverSkills(projectRoot: string): SkillMetadata[] {
+function collectSkills(
+  dir: string,
+  scope: SkillScope,
+  found: Map<string, SkillMetadata>,
+): void {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const metadata = readSkillDir(dir, entry.name, scope);
+    if (metadata && !found.has(metadata.name)) found.set(metadata.name, metadata);
+  }
+}
+
+/**
+ * Discover skills across declared project roots, then personal scopes.
+ * First hit per skill name wins. Extra roots outside a module directory
+ * are visible when they appear in the declared list.
+ */
+export function discoverSkillsFromRoots(projectRoots: readonly string[]): SkillMetadata[] {
   const found = new Map<string, SkillMetadata>();
-  for (const { dir, scope } of skillRoots(projectRoot)) {
-    if (!existsSync(dir)) continue;
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const metadata = readSkillDir(dir, entry.name, scope);
-      if (metadata && !found.has(metadata.name)) found.set(metadata.name, metadata);
+  for (const projectRoot of projectRoots) {
+    for (const { dir, scope } of projectSkillRoots(projectRoot)) {
+      collectSkills(dir, scope, found);
     }
   }
+  for (const { dir, scope } of personalSkillRoots()) {
+    collectSkills(dir, scope, found);
+  }
   return Array.from(found.values());
+}
+
+/** Discover all skills visible from a project root. Metadata only. */
+export function discoverSkills(projectRoot: string): SkillMetadata[] {
+  return discoverSkillsFromRoots([projectRoot]);
 }
 
 /** Load a skill's full body — the on-demand half of progressive disclosure. */
