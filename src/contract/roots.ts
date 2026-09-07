@@ -85,7 +85,7 @@ function coerceRootEntry(
     }
     const rawId = (item as { id?: unknown }).id;
     const id = typeof rawId === "string" && rawId.trim() !== "" ? rawId : undefined;
-    return { id, path };
+    return id ? { id, path } : { path };
   }
   throw new Error(
     `Roots map ${source} entry ${index} must be a path string or { id?, path }`,
