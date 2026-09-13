@@ -29,4 +29,8 @@ RUN pip3 install --break-system-packages --no-cache-dir -r engine/requirements.t
 ENV NODE_ENV=production
 ENV CONDUCTOR_PYTHON=python3
 
+# Official node image ships UID 1000 (`node`). Install/build stay root;
+# the stdio server only needs to read /app and write /tmp.
+USER node
+
 CMD ["node", "dist/index.js"]
