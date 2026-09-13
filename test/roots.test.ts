@@ -82,6 +82,7 @@ test("compiles one contract with merged layer table and verification commands", 
   const shared = contract.roots?.find((root) => root.id === "shared");
   assert.ok(shared);
   assert.equal(shared.contractPath, null);
+  assert.equal(contract.spendMandate, null);
 });
 
 test("discovers SKILL.md outside the module directory", () => {
@@ -137,6 +138,21 @@ test("pipeline-pulse single-root compile is unchanged", () => {
     skills.find((skill) => skill.name === "shared-ledger"),
     undefined,
   );
+});
+
+test("multi-root merge keeps the first compiled spend mandate", () => {
+  const fromSafe = loadWorkspace({
+    path: REPO,
+    roots: ["examples/safe-autonomous-run", "examples/pipeline-pulse"],
+  });
+  assert.equal(fromSafe.spendMandate?.runUsd, 0.0004);
+
+  const pulseFirst = loadWorkspace({
+    path: REPO,
+    roots: ["examples/pipeline-pulse", "examples/safe-autonomous-run"],
+  });
+  // Pulse has no mandate; first non-null compiled mandate still wins.
+  assert.equal(pulseFirst.spendMandate?.runUsd, 0.0004);
 });
 
 test("empty roots map text fails closed", () => {

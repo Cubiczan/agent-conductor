@@ -17,6 +17,7 @@ dependency surface near zero, and the MCP stdout stream protocol-clean.
 | `src/contract/` | Contract compilation | Extract recognized AGENTS.md patterns; preserve unknown sections | Drop content the parser doesn't understand |
 | `src/contract/workspace.ts` | Multi-root compile | Walk declared roots; merge layer tables and gates; fail closed | Invent or skip a root the map declared |
 | `src/skills/` | Skill discovery | Frontmatter-only metadata on discovery; bodies on demand | Load bodies eagerly |
+| `src/budget/` | Bounded-run spend control | Fail-closed ceilings, ledger before/after, compose CHP R0 | Invent a parallel policy engine or a new package |
 | `src/engine/` + `engine/bridge.py` | Decision engine boundary | Speak newline-delimited JSON over child stdio | Print logs to stdout on either side |
 | `engine/vendor/cme/` | Vendored CHP core | Keep byte-identical to upstream except `__init__.py` | Edit vendored logic — fix upstream instead |
 | `test/` | Regression guard | Test against the real example fixture | Mock the Python engine in engine tests |
@@ -53,3 +54,24 @@ npm run build
 - Executing contract gates as subprocesses (roadmap v0.2)
 - Skill installation from remote catalogs (roadmap v0.4)
 - Rewriting the CHP engine in TypeScript
+
+## Spend mandate
+
+Fail-closed budgets for bounded autonomous runs. Token/cost preview is
+approximate (`ceil(chars/4)` and documented class rates — see README).
+The kill switch is process-local and does not ask the model.
+
+| Ceiling | Limit |
+|---------|-------|
+| run | 2.00 |
+| tenant-day | 10.00 |
+| tool-default | 0.25 |
+| max-turns | 12 |
+| max-model-class | mid |
+| preferred-model-class | small |
+
+### High-impact tools
+
+- Bash
+- Write
+- decision_adversary
