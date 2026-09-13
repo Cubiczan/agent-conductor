@@ -5,7 +5,7 @@ import { ChpBridge } from "../src/engine/chpBridge.ts";
 const bridge = new ChpBridge();
 after(() => bridge.stop());
 
-test("engine ping reports the vendored CHP version", async () => {
+test("engine ping reports the published CHP package version", async () => {
   const result = await bridge.ping();
   assert.equal(result.ok, true);
   assert.equal(result.engine, "chp");

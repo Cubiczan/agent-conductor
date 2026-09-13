@@ -7,8 +7,8 @@
  *   contract_*  — compile an AGENTS.md operating manual into actionable
  *                 rules, layer boundaries, and verification gates
  *   skills_*    — discover and progressively load SKILL.md skills
- *   decision_*  — gate high-stakes changes through the vendored
- *                 Consensus Hardening Protocol engine
+ *   decision_*  — gate high-stakes changes through published CHP
+ *                 (PyPI consensus-hardening-protocol via engine/bridge.py)
  *
  * Server shape adapted from onchainmind's MCPServer
  * (https://codeberg.org/cubiczan/onchainmind, MIT).
@@ -180,7 +180,7 @@ export function createServer(): McpServer {
 
   server.tool(
     "engine_status",
-    "Health/readiness probe for the vendored CHP decision engine (Python " +
+    "Health/readiness probe for the CHP decision engine (Python " +
       "subprocess). By default returns a cheap readiness snapshot (running, last " +
       "exit code, restart-backoff state) WITHOUT spawning Python. Pass probe=true " +
       "to also issue a live ping that warms/spawns the subprocess.",

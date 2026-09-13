@@ -1,0 +1,43 @@
+schema: spec-driven
+
+context: |
+  Agent Conductor turns AGENTS.md operating manuals and SKILL.md skills into an
+  active orchestration layer over MCP, with the Consensus Hardening Protocol (CHP)
+  gating high-stakes decisions. Shipped as a stdio MCP server (7 tools today:
+  contract_load, contract_verification, skills_list, skill_load, decision_gate,
+  decision_adversary, engine_status).
+
+  Tech stack: TypeScript (Node >= 23, run directly via type stripping — the source
+  must stay erasable, `erasableSyntaxOnly` is enforced; no enums, no parameter
+  properties) + a Python 3.10+ decision engine
+  (`consensus-hardening-protocol` on PyPI, import path `chp`) reached over a
+  newline-delimited JSON stdio bridge (`engine/bridge.py`).
+
+  Non-negotiables (from AGENTS.md — specs must never propose violating these):
+  1. stdout is sacred — MCP transport owns process stdout; all logging to stderr
+     on both sides of the bridge.
+  2. Zero new runtime dependencies — markdown/frontmatter parsing stays
+     hand-rolled; only the MCP SDK and zod are allowed on the Node side.
+  3. Lossless contract compilation — unrecognized AGENTS.md sections must survive
+     into `contract.sections`.
+  4. Erasable TypeScript only.
+  5. CHP via PyPI — pin `consensus-hardening-protocol` in `engine/requirements.txt`;
+     do not re-vendor under `engine/`. Protocol fixes belong upstream.
+  6. Engine needs Python 3.10+ with the published package installed.
+
+  Verification gates: `npm test`, `npm run test:engine`, `npx tsc --noEmit`.
+  Tests use node:test and run against the real `examples/pipeline-pulse/AGENTS.md`
+  fixture; engine tests must not mock the Python side.
+
+  Capability naming: name specs after the MCP surface they govern
+  (e.g. `contract-verification`, `skill-registry`, `decision-engine`).
+
+rules:
+  proposal:
+    - Keep proposals under 500 words
+    - Always state which AGENTS.md non-negotiables constrain the change
+  design:
+    - Record rejected alternatives with the reason for rejection
+    - Call out any security boundary the change moves
+  tasks:
+    - End every phase with the relevant verification gate from AGENTS.md

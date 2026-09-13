@@ -1,6 +1,7 @@
 """agent-conductor decision engine bridge.
 
-Exposes the vendored Consensus Hardening Protocol (CHP) core over a
+Exposes the published Consensus Hardening Protocol (CHP) package
+(`consensus-hardening-protocol` on PyPI, import path `chp`) over a
 newline-delimited JSON protocol on stdin/stdout, so the TypeScript MCP
 server can gate decisions without an HTTP dependency.
 
@@ -17,22 +18,28 @@ Methods:
                            "verification_failures", "report"}
 
 Run: python3 engine/bridge.py   (reads stdin until EOF)
+
+Requires: pip install -r engine/requirements.txt
 """
 from __future__ import annotations
 
 import json
-import os
 import sys
+from importlib.metadata import PackageNotFoundError, version
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor"))
+from chp.gates import evaluate_r0_gate
+from chp.runner import TriangulationRunner
 
-from cme import __version__ as CME_VERSION  # noqa: E402
-from cme.chp.gates import evaluate_r0_gate  # noqa: E402
-from cme.chp.runner import TriangulationRunner  # noqa: E402
+
+def _package_version() -> str:
+    try:
+        return version("consensus-hardening-protocol")
+    except PackageNotFoundError:
+        return "unknown"
 
 
 def handle_ping(params):
-    return {"ok": True, "engine": "chp", "version": CME_VERSION}
+    return {"ok": True, "engine": "chp", "version": _package_version()}
 
 
 def handle_r0_gate(params):

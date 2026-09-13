@@ -17,7 +17,7 @@ dependency surface near zero, and the MCP stdout stream protocol-clean.
 | `src/contract/` | Contract compilation | Extract recognized AGENTS.md patterns; preserve unknown sections | Drop content the parser doesn't understand |
 | `src/skills/` | Skill discovery | Frontmatter-only metadata on discovery; bodies on demand | Load bodies eagerly |
 | `src/engine/` + `engine/bridge.py` | Decision engine boundary | Speak newline-delimited JSON over child stdio | Print logs to stdout on either side |
-| `engine/vendor/cme/` | Vendored CHP core | Keep byte-identical to upstream except `__init__.py` | Edit vendored logic — fix upstream instead |
+| PyPI `consensus-hardening-protocol` | Published CHP engine (`import chp`) | Pin in `engine/requirements.txt`; fix upstream | Re-vendor a private copy |
 | `test/` | Regression guard | Test against the real example fixture | Mock the Python engine in engine tests |
 
 ## Engineering rules
@@ -28,12 +28,13 @@ dependency surface near zero, and the MCP stdout stream protocol-clean.
 2. **Zero new runtime dependencies** — markdown/frontmatter parsing stays hand-rolled; only the MCP SDK and zod are allowed.
 3. **Lossless compilation** — unrecognized AGENTS.md sections must survive into `contract.sections`.
 4. **Erasable TypeScript only** — source must run under Node's type stripping (no enums, no parameter properties); `tsconfig` enforces `erasableSyntaxOnly`.
-5. **Vendor discipline** — `engine/vendor/cme/` is upstream's code; changes belong upstream or in `bridge.py`.
-6. **Engine runs on stdlib Python 3.9+** — no pip installs in the engine path.
+5. **CHP via PyPI** — decision logic comes from `consensus-hardening-protocol` (`pip install -r engine/requirements.txt`). Do not re-vendor under `engine/`.
+6. **Engine needs Python 3.10+** — install the published package before running bridge / MCP decision tools.
 
 ### Code change checklist
 
 ```bash
+pip install -r engine/requirements.txt
 npm test
 npm run test:engine
 npx tsc --noEmit
