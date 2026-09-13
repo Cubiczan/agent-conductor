@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -8,6 +7,7 @@ import { loadContract } from "../src/contract/parser.ts";
 import { parseRootsFile, resolveDeclaredRoots } from "../src/contract/roots.ts";
 import { loadWorkspace } from "../src/contract/workspace.ts";
 import { discoverSkills, discoverSkillsFromRoots } from "../src/skills/loader.ts";
+import { isInside, resolveContained } from "../src/utils/containedPath.ts";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PULSE = join(REPO, "examples", "pipeline-pulse");
@@ -156,8 +156,57 @@ test("multi-root merge keeps the first compiled spend mandate", () => {
 });
 
 test("empty roots map text fails closed", () => {
-  const dir = mkdtempSync(join(tmpdir(), "conductor-roots-"));
+  const dir = mkdtempSync(join(REPO, "test", "tmp-roots-"));
   const map = join(dir, "conductor.roots");
   writeFileSync(map, "# only comments\n\n");
-  assert.throws(() => resolveDeclaredRoots({ rootsFile: map }), /declares no roots/i);
+  try {
+    assert.throws(() => resolveDeclaredRoots({ rootsFile: map }), /declares no roots/i);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("rejects paths that escape the process working directory", () => {
+  assert.throws(() => resolveContained(join("..", "etc", "passwd")), /outside the allowed directory/i);
+  assert.throws(() => loadWorkspace({ path: join("..", "etc", "passwd") }), /outside the allowed directory/i);
+  assert.throws(
+    () => loadWorkspace({ rootsFile: join("..", "secret.roots.json") }),
+    /outside the allowed directory/i,
+  );
+  assert.throws(
+    () => resolveDeclaredRoots({ roots: [join("..", "..", "..", "etc")], base: MULTI }),
+    /outside the allowed directory/i,
+  );
+  assert.throws(() => loadContract(join("..", "etc", "passwd")), /outside the allowed directory/i);
+  assert.throws(() => discoverSkills(join("..", "etc")), /outside the allowed directory/i);
+});
+
+test("keeps legitimate in-tree relative paths", () => {
+  const viaRelative = loadWorkspace({ path: join("examples", "pipeline-pulse") });
+  const viaNormalized = loadWorkspace({
+    path: join("examples", "..", "examples", "pipeline-pulse", "AGENTS.md"),
+  });
+  assert.equal(viaRelative.title, "AGENTS.md — Pipeline Pulse CRM");
+  assert.equal(viaNormalized.title, viaRelative.title);
+
+  const sibling = resolveDeclaredRoots({ roots: ["../pipeline-pulse"], base: MULTI });
+  assert.match(sibling[0].resolved, /examples[/\\]pipeline-pulse$/);
+});
+
+test("isInside rejects prefix-sibling and parent paths", () => {
+  assert.equal(isInside("/workspace", "/workspace"), true);
+  assert.equal(isInside("/workspace", "/workspace/examples/foo"), true);
+  assert.equal(isInside("/workspace", "/workspace-evil/secret"), false);
+  assert.equal(isInside("/workspace", "/etc/passwd"), false);
+});
+
+test("rejects a roots map entry that escapes the workspace", () => {
+  const dir = mkdtempSync(join(REPO, "test", "tmp-escape-"));
+  const map = join(dir, "conductor.roots.json");
+  writeFileSync(map, JSON.stringify({ roots: [join("..", "..", "..", "etc")] }));
+  try {
+    assert.throws(() => resolveDeclaredRoots({ rootsFile: map }), /outside the allowed directory/i);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

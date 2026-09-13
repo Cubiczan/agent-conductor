@@ -15,6 +15,7 @@
 
 import { readFileSync } from "node:fs";
 import type { ContractSpendMandate, ModelClass } from "../budget/types.ts";
+import { resolveContained } from "../utils/containedPath.ts";
 import type {
   AgentContract,
   ContractSection,
@@ -333,5 +334,6 @@ function unique(values: string[]): string[] {
 
 /** Read and compile an AGENTS.md file from disk. */
 export function loadContract(path: string): AgentContract {
-  return compileContract(readFileSync(path, "utf8"), path);
+  const contained = resolveContained(path);
+  return compileContract(readFileSync(contained, "utf8"), contained);
 }

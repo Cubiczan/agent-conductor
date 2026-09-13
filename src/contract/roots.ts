@@ -10,6 +10,7 @@
 
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, normalize, resolve } from "node:path";
+import { assertContained, resolveContained } from "../utils/containedPath.ts";
 
 /** A declared root after fail-closed filesystem resolution. */
 export interface DeclaredRoot {
@@ -142,7 +143,7 @@ export function resolveDeclaredRoots(options: ResolveRootsOptions): DeclaredRoot
     entries = options.roots.map((root) => (typeof root === "string" ? { path: root } : root));
     base = resolve(options.base ?? process.cwd());
   } else if (options.rootsFile) {
-    const rootsFile = resolve(options.rootsFile);
+    const rootsFile = resolveContained(options.rootsFile);
     if (!existsSync(rootsFile)) {
       throw new Error(`Declared roots map is missing: ${rootsFile}`);
     }
@@ -168,7 +169,7 @@ export function resolveDeclaredRoots(options: ResolveRootsOptions): DeclaredRoot
     if (declaredPath === "") {
       throw new Error("Declared root path is empty");
     }
-    const resolvedPath = resolve(base, declaredPath);
+    const resolvedPath = assertContained(resolve(base, declaredPath));
     if (!existsSync(resolvedPath)) {
       const label = entry.id ? `"${entry.id}" ` : "";
       throw new Error(

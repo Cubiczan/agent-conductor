@@ -59,3 +59,18 @@ test("parseFrontmatter passes through files without frontmatter", () => {
   assert.deepEqual(fields, {});
   assert.match(body, /Just markdown/);
 });
+
+test("loadSkill rejects a path outside the workspace and personal skill dirs", () => {
+  assert.throws(
+    () =>
+      loadSkill({
+        name: "evil",
+        description: "",
+        version: "0.0.0",
+        tools: [],
+        scope: "project",
+        path: join("..", "etc", "passwd"),
+      }),
+    /outside the allowed directory/i,
+  );
+});

@@ -12,6 +12,7 @@
 
 import { existsSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { resolveContained } from "../utils/containedPath.ts";
 import { CONTRACT_FILENAMES, findContractFile, findRootsFile, isRootsMapFile } from "./paths.ts";
 import { loadContract } from "./parser.ts";
 import { type DeclaredRoot, resolveDeclaredRoots } from "./roots.ts";
@@ -89,7 +90,7 @@ export function mergeContracts(
  * are walked with the same fail-closed rules.
  */
 export function resolveWorkspaceRoots(input: WorkspaceInput = {}): DeclaredRoot[] {
-  const pathArg = input.path ? resolve(input.path) : undefined;
+  const pathArg = input.path ? resolveContained(input.path) : undefined;
 
   if (input.roots && input.roots.length > 0) {
     const base = directoryBase(pathArg);
@@ -97,7 +98,7 @@ export function resolveWorkspaceRoots(input: WorkspaceInput = {}): DeclaredRoot[
   }
 
   if (input.rootsFile) {
-    return resolveDeclaredRoots({ rootsFile: resolve(input.rootsFile) });
+    return resolveDeclaredRoots({ rootsFile: resolveContained(input.rootsFile) });
   }
 
   if (pathArg && existsSync(pathArg) && statSync(pathArg).isFile()) {
@@ -173,7 +174,7 @@ function loadFromRoots(declared: DeclaredRoot[], source: string): AgentContract 
  * - otherwise → existing single-directory contract lookup.
  */
 export function loadWorkspace(input: WorkspaceInput = {}): AgentContract {
-  const pathArg = input.path ? resolve(input.path) : undefined;
+  const pathArg = input.path ? resolveContained(input.path) : undefined;
 
   if (
     !input.roots &&
@@ -189,7 +190,7 @@ export function loadWorkspace(input: WorkspaceInput = {}): AgentContract {
 
   const declared = resolveWorkspaceRoots(input);
   const source = input.rootsFile
-    ? resolve(input.rootsFile)
+    ? resolveContained(input.rootsFile)
     : pathArg && existsSync(pathArg) && isRootsMapFile(pathArg)
       ? pathArg
       : findRootsFile(declared[0]?.resolved ?? "") ?? pathArg ?? declared[0]?.resolved ?? "workspace";

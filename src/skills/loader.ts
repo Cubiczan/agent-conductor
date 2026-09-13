@@ -11,6 +11,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { isInside, resolveContained } from "../utils/containedPath.ts";
 import type { LoadedSkill, SkillMetadata, SkillScope } from "./types.ts";
 
 /** Project-scoped skill directories for one root, in shadowing order. */
@@ -85,7 +86,12 @@ function unquote(value: string): string {
 // ─── Discovery ───────────────────────────────────────────────────────────────
 
 function readSkillDir(dir: string, skillName: string, scope: SkillScope): SkillMetadata | null {
-  const skillPath = join(dir, skillName, "SKILL.md");
+  let skillPath: string;
+  try {
+    skillPath = resolveContained(join(skillName, "SKILL.md"), dir);
+  } catch {
+    return null;
+  }
   if (!existsSync(skillPath)) return null;
   const { fields } = parseFrontmatter(readFileSync(skillPath, "utf8"));
   const asString = (v: string | string[] | undefined, fallback: string) =>
@@ -123,7 +129,8 @@ function collectSkills(
 export function discoverSkillsFromRoots(projectRoots: readonly string[]): SkillMetadata[] {
   const found = new Map<string, SkillMetadata>();
   for (const projectRoot of projectRoots) {
-    for (const { dir, scope } of projectSkillRoots(projectRoot)) {
+    const containedRoot = resolveContained(projectRoot);
+    for (const { dir, scope } of projectSkillRoots(containedRoot)) {
       collectSkills(dir, scope, found);
     }
   }
@@ -140,6 +147,11 @@ export function discoverSkills(projectRoot: string): SkillMetadata[] {
 
 /** Load a skill's full body — the on-demand half of progressive disclosure. */
 export function loadSkill(metadata: SkillMetadata): LoadedSkill {
-  const { body } = parseFrontmatter(readFileSync(metadata.path, "utf8"));
+  const allowed = [process.cwd(), ...personalSkillRoots().map((root) => root.dir)];
+  const base = allowed.find((candidate) => isInside(candidate, metadata.path));
+  if (!base) {
+    throw new Error(`Path is outside the allowed directory: ${metadata.path}`);
+  }
+  const { body } = parseFrontmatter(readFileSync(resolveContained(metadata.path, base), "utf8"));
   return { ...metadata, body };
 }
