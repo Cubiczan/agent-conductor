@@ -1,5 +1,7 @@
 # Agent Conductor
 
+> **Cubiczan stack** — [Profile](https://github.com/Cubiczan) · [CHP](https://github.com/Cubiczan/consensus-hardening-protocol) · **You are here:** `agent-conductor`
+
 **AGENTS.md in, governed agent team out.**
 
 Agent Conductor is an [MCP](https://modelcontextprotocol.io) server that turns
@@ -8,7 +10,7 @@ the two conventions the coding-agent ecosystem has converged on —
 passive documentation into an active orchestration layer, with a
 consensus-hardened decision engine gating high-stakes changes.
 
-- **Mirrors:** [codeberg.org/cubiczan/agent-conductor](https://codeberg.org/cubiczan/agent-conductor) · [github.com/icohangar-ops/agent-conductor](https://github.com/icohangar-ops/agent-conductor)
+- **Mirrors:** [Cubiczan/agent-conductor](https://github.com/Cubiczan/agent-conductor) · [codeberg.org/cubiczan/agent-conductor](https://codeberg.org/cubiczan/agent-conductor) · [icohangar-ops/agent-conductor](https://github.com/icohangar-ops/agent-conductor)
 - **License:** MIT
 - **Status:** v0.1 — working scaffold; see [Roadmap](#roadmap)
 
@@ -48,7 +50,7 @@ MCP client (Claude Code / Cursor / Copilot / ...)
                  ▼
 ┌────────────────────────────────────────────────┐
 │ Python decision engine (engine/)               │
-│   vendored Consensus Hardening Protocol core   │
+│   bridge.py → PyPI consensus-hardening-protocol│
 │   R0 gates · foundation attacks · lifecycle    │
 └────────────────────────────────────────────────┘
 ```
@@ -62,20 +64,21 @@ Three capability groups:
    scopes with progressive disclosure: metadata costs ~100 tokens, bodies
    load only on demand.
 3. **Decision** — gate work through the
-   [Consensus Hardening Protocol](https://codeberg.org/cubiczan/consensus-hardening-protocol):
+   [Consensus Hardening Protocol](https://github.com/icohangar-ops/consensus-hardening-protocol):
    a cheap R0 sanity gate before work starts, and an adversarial
    foundation-attack pass before a high-stakes change locks.
 
 ## Quick start
 
-Requirements: **Node 23+** (runs TypeScript natively) and **Python 3.9+**
-(stdlib only — the engine needs no pip installs).
+Requirements: **Node 23+** (runs TypeScript natively) and **Python 3.10+**
+with the published CHP package installed.
 
 ```bash
-git clone https://codeberg.org/cubiczan/agent-conductor.git
+git clone https://github.com/icohangar-ops/agent-conductor.git
 cd agent-conductor
 npm install
-npm test            # 14 TypeScript tests (parser, skills, live engine bridge)
+pip install -r engine/requirements.txt
+npm test            # TypeScript tests (parser, skills, live engine bridge)
 npm run test:engine # Python bridge protocol tests
 npm run build
 ```
@@ -303,9 +306,10 @@ compiles.
 │   ├── engine/chpBridge.ts    # Python engine client
 │   └── utils/logger.ts        # stderr-only logging (stdout is the transport)
 ├── engine/
-│   ├── bridge.py              # JSON-over-stdio request router
-│   ├── test_bridge.py         # protocol tests
-│   └── vendor/cme/            # vendored CHP core (MIT, byte-identical; see NOTICE.md)
+│   ├── bridge.py              # JSON-over-stdio router → PyPI `chp`
+│   ├── requirements.txt       # consensus-hardening-protocol pin
+│   ├── NOTICE.md              # attribution for the published engine
+│   └── test_bridge.py         # protocol tests
 ├── examples/pipeline-pulse/   # real AGENTS.md fixture + example skill
 └── test/                      # node:test suites (run the .ts directly)
 ```
@@ -313,6 +317,7 @@ compiles.
 ## Development
 
 ```bash
+pip install -r engine/requirements.txt
 npm test            # TypeScript tests — includes a live engine round-trip
 npm run test:engine # Python-side protocol tests
 npx tsc --noEmit    # type check
@@ -324,20 +329,20 @@ House rules (the full set is in this repo's own [AGENTS.md](AGENTS.md)):
 
 1. **stdout is sacred** — the MCP transport owns it; all logging goes to
    stderr on both sides of the bridge.
-2. **Zero new runtime dependencies** — only `@modelcontextprotocol/sdk` and
-   `zod`; markdown and frontmatter parsing stay hand-rolled and tested.
+2. **Zero new Node runtime dependencies** — only `@modelcontextprotocol/sdk`
+   and `zod`; markdown/frontmatter stay hand-rolled. CHP is a PyPI dep.
 3. **Erasable TypeScript only** — source must run under Node's type
    stripping (no enums, no parameter properties).
-4. **Vendor discipline** — `engine/vendor/cme/` stays byte-identical to
-   upstream except the documented `__init__.py` patch; engine behavior
-   changes belong in `bridge.py`.
+4. **CHP via PyPI** — install `consensus-hardening-protocol`; do not
+   re-vendor under `engine/`. Protocol fixes belong upstream.
+5. **Python 3.10+** — required by the published package.
 
 ## Roadmap
 
 | Version | Theme | Scope |
 |---------|-------|-------|
 | **v0.2** | Enforcement | Execute `contract_verification` gates as real subprocesses and return pass/fail evidence — turning "reads the contract" into "enforces the contract" |
-| **v0.3** | Orchestration | Map contract layers onto CHP `MeshAgent` capabilities (`produces`/`consumes`) and expose full multi-agent deliberation sessions over MCP |
+| **v0.3** | Orchestration | Expose `decision_lock` + mesh session tools over MCP (multi-agent deliberation on top of published CHP) |
 | **v0.4** | Registry | Install vetted skills from remote catalogs (awesome-agent-skills format) with source-review prompts |
 
 ## Provenance
@@ -346,14 +351,22 @@ Conductor deliberately reuses proven components rather than rewriting them:
 
 | Component | Source | License |
 |-----------|--------|---------|
-| Decision engine (`engine/vendor/cme/`) | [consensus-hardening-protocol](https://codeberg.org/cubiczan/consensus-hardening-protocol) | MIT |
+| Decision engine (PyPI) | [consensus-hardening-protocol](https://github.com/icohangar-ops/consensus-hardening-protocol) | MIT |
 | MCP server + registry shape | [onchainmind](https://codeberg.org/cubiczan/onchainmind) | MIT |
 | Skill quality standards | [VoltAgent/awesome-agent-skills](https://github.com/VoltAgent/awesome-agent-skills) | — |
 | Example fixture | Pipeline Pulse CRM operating manual | fixture |
 
-See [engine/vendor/NOTICE.md](engine/vendor/NOTICE.md) for vendoring details
-and [ARCHITECTURE.md](ARCHITECTURE.md) for the reasoning behind the
-two-language design.
+See [engine/NOTICE.md](engine/NOTICE.md) and [ARCHITECTURE.md](ARCHITECTURE.md)
+for the two-language design.
+
+---
+
+## Cubiczan stack
+
+| Governance | [consensus-hardening-protocol](https://github.com/Cubiczan/consensus-hardening-protocol) · **agent-conductor** · [compliance-as-code-agent](https://github.com/Cubiczan/compliance-as-code-agent) · [cleanmandate](https://github.com/Cubiczan/cleanmandate) |
+| Platform | [cubiczan-mcp-server](https://github.com/Cubiczan/cubiczan-mcp-server) · [operational-intelligence](https://github.com/Cubiczan/operational-intelligence) · [software-factory](https://github.com/Cubiczan/software-factory) |
+
+Conductor compiles `AGENTS.md` + `SKILL.md` into MCP tools and routes high-stakes decisions through CHP — the same lock model [Metabocommand](https://github.com/Cubiczan/Metabocommand) uses for finance approvals.
 
 ## License
 

@@ -29,13 +29,12 @@ MCP client (Claude Code / Cursor / Copilot / ...)
 ┌────────────────────────────────────────────────┐
 │ Python decision engine (engine/)               │
 │                                                │
-│  bridge.py            request router           │
-│  vendor/cme/          vendored CHP core (MIT)  │
-│    chp/gates.py       R0 + phase gates         │
-│    chp/runner.py      adversarial passes       │
-│    chp/models.py      decision lifecycle       │
-│    orchestrator.py    produces/consumes DAG    │
-│    agent.py           MeshAgent base           │
+│  bridge.py            NDJSON request router    │
+│  requirements.txt     PyPI CHP pin             │
+│  → consensus-hardening-protocol (`import chp`) │
+│    chp.gates          R0 + phase gates         │
+│    chp.runner         adversarial passes       │
+│    chp.models         decision lifecycle       │
 └────────────────────────────────────────────────┘
 ```
 
@@ -80,24 +79,24 @@ classes to filesystem-discovered SKILL.md files.
 
 ### Decision engine (`engine/`)
 
-The vendored core of consensus-hardening-protocol, exposed through
-`bridge.py` over newline-delimited JSON (`{id, method, params}` →
-`{id, result | error}`). Two methods are wired in v0.1:
+Published [`consensus-hardening-protocol`](https://pypi.org/project/consensus-hardening-protocol/)
+(`import chp`), reached through `bridge.py` over newline-delimited JSON
+(`{id, method, params}` → `{id, result | error}`). MCP tools map 1:1:
 
-- **`r0_gate`** — the cheapest, highest-leverage CHP gate: before any work,
-  is the decision solvable, scoped, valid, and worth making? Any FATAL →
-  HALT.
-- **`adversary`** — `TriangulationRunner.as_adversary(claim)`: a one-shot
-  pass where CHP attacks the claim's foundations, produces a 0–100
-  foundation score, devil's-advocate findings, and a session status
-  (EXPLORING / HALT / REFRAME_REQUIRED).
+| MCP tool | Bridge method | CHP surface |
+|----------|---------------|-------------|
+| `decision_gate` | `r0_gate` | `chp.gates.evaluate_r0_gate` |
+| `decision_adversary` | `adversary` | `TriangulationRunner.as_adversary` |
+| `engine_status` | `ping` | package version + subprocess health |
+| *(v0.3)* `decision_lock` / mesh sessions | TBD | lock progression + multi-agent |
 
-The vendor copy excludes CHP's finance-domain packages (`finance/`,
-`cfo_os/`, `demo/`, CLI) — only the protocol core ships. `__init__.py` is
-patched accordingly; everything else is byte-identical to upstream. The
-core is pure-Python stdlib (dataclasses only), so the engine needs no pip
-install and runs on Python 3.9+ despite upstream targeting 3.10
-(`from __future__ import annotations` throughout).
+- **`r0_gate`** — cheapest CHP gate: solvable / scoped / valid / worth_it.
+  Any FATAL → HALT.
+- **`adversary`** — foundation attack, 0–100 score, devil's-advocate
+  findings, session status (EXPLORING / HALT / REFRAME_REQUIRED).
+
+Install with `pip install -r engine/requirements.txt` (Python 3.10+).
+Do not re-vendor; protocol fixes belong in the upstream package.
 
 ### Bridge client (`src/engine/chpBridge.ts`)
 
@@ -129,7 +128,7 @@ the server's stderr. The subprocess is reused across calls.
 
 | Component | Source | License |
 |-----------|--------|---------|
-| `engine/vendor/cme/` | [consensus-hardening-protocol](https://codeberg.org/cubiczan/consensus-hardening-protocol) | MIT |
+| PyPI `consensus-hardening-protocol` | [icohangar-ops/consensus-hardening-protocol](https://github.com/icohangar-ops/consensus-hardening-protocol) | MIT |
 | `src/server.ts`, `src/skills/registry.ts` (shape) | [onchainmind](https://codeberg.org/cubiczan/onchainmind) | MIT |
 | `examples/pipeline-pulse/AGENTS.md` | Pipeline Pulse CRM operating manual | fixture |
 

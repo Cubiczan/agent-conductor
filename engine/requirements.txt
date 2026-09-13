@@ -1,0 +1,4 @@
+# Decision engine for the MCP bridge (engine/bridge.py).
+# Install before npm test / npm run test:engine:
+#   pip install -r engine/requirements.txt
+consensus-hardening-protocol>=0.1.0,<0.2

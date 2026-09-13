@@ -1,9 +1,10 @@
 /**
  * Agent Conductor — CHP decision engine client.
  *
- * Talks to the vendored Consensus Hardening Protocol core
- * (engine/bridge.py) over newline-delimited JSON on a child process's
- * stdio. The process starts lazily on first call and is reused.
+ * Talks to the published Consensus Hardening Protocol package via
+ * engine/bridge.py over newline-delimited JSON on a child process's
+ * stdio. Requires: pip install -r engine/requirements.txt.
+ * The process starts lazily on first call and is reused.
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
