@@ -2,9 +2,14 @@
  * Agent Conductor — Contract types.
  *
  * An AgentContract is the compiled form of an AGENTS.md file: the
- * machine-actionable pieces (rules, gates, skills, layer boundaries)
- * extracted from the human-readable operating manual.
+ * machine-actionable pieces (rules, gates, skills, layer boundaries,
+ * optional spend mandate) extracted from the human-readable operating
+ * manual.
  */
+
+import type { ContractSpendMandate } from "../budget/types.ts";
+
+export type { ContractSpendMandate, ModelClass } from "../budget/types.ts";
 
 /** One markdown section, flattened with its heading level. */
 export interface ContractSection {
@@ -58,6 +63,7 @@ export interface AgentContract {
   readonly gates: VerificationGate[];
   readonly skills: SkillRecommendation[];
   readonly outOfScope: string[];
+  readonly spendMandate: ContractSpendMandate | null;
   readonly sections: ContractSection[];
   /** Present when the contract was compiled from more than one declared root. */
   readonly roots?: readonly WorkspaceRoot[];

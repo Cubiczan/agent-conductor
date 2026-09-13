@@ -77,6 +77,8 @@ export function mergeContracts(
     ),
     skills,
     outOfScope: uniqueStrings(loaded.flatMap((item) => item.contract.outOfScope)),
+    // First declared root that compiled a spend mandate wins (same as skills).
+    spendMandate: loaded.map((item) => item.contract.spendMandate).find((m) => m != null) ?? null,
     sections: loaded.flatMap((item) => item.contract.sections),
   };
 }
