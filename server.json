@@ -6,12 +6,12 @@
     "url": "https://github.com/icohangar-ops/agent-conductor",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@cubiczan/agent-conductor",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       }

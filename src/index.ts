@@ -11,6 +11,14 @@ import { createServer } from "./server.ts";
 import { chpBridge } from "./engine/chpBridge.ts";
 import { logger } from "./utils/logger.ts";
 
+// Contract CLI subcommand (matrix row 21): `agent-conductor verify <AGENTS.md>`
+// compiles a contract and optionally runs its verification gates, then exits.
+// Any other invocation (or none) starts the MCP stdio server as before.
+if (process.argv[2] === "verify") {
+  const { runVerify } = await import("./cli.ts");
+  process.exit(runVerify(process.argv.slice(3)));
+}
+
 const server = createServer();
 const transport = new StdioServerTransport();
 

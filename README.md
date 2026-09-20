@@ -424,11 +424,55 @@ House rules (the full set is in this repo's own [AGENTS.md](AGENTS.md)):
    upstream except the documented `__init__.py` patch; engine behavior
    changes belong in `bridge.py`.
 
+## Contract verification CLI (row 21: executable contracts)
+
+The same parser that backs `contract_load` is exposed as a CLI subcommand,
+so CI can compile an AGENTS.md fail-closed and (optionally) run the
+verification gates it declares:
+
+```bash
+agent-conductor verify AGENTS.md                  # compile; exit 0/1
+agent-conductor verify --require-gates AGENTS.md  # also fail when the contract
+                                                  # declares no gates (anti-placeholder)
+agent-conductor verify --run-gates AGENTS.md      # run every declared gate
+                                                  # command; exit 1 on failure
+```
+
+`--run-gates` is what turns "reads the contract" into "enforces the
+contract": the checklist shell blocks in the AGENTS.md become the CI step.
+This repo's own CI compiles its own `AGENTS.md` this way — the pattern
+source dogfoods the pattern.
+
+## Skills lock (row 23: supply-chain discipline)
+
+A project may pin the skills it trusts in a `skills-lock.json` at the
+project root:
+
+```json
+{
+  "version": 1,
+  "skills": {
+    "pipeline-scoring": {
+      "path": ".conductor/skills/pipeline-scoring/SKILL.md",
+      "sha256": "<hex digest of the SKILL.md bytes>"
+    }
+  }
+}
+```
+
+When the lockfile is present, `skill_load` is fail-closed: the SKILL.md
+bytes are hashed (SHA-256) and compared against the pinned digest; a
+missing entry, tampered file, or stale hash refuses the load with a
+`SkillLockError` naming the skill and both digests. Discovery
+(frontmatter only) stays unverified — the threat boundary is the moment
+skill *content* enters the agent. No lockfile → behavior unchanged
+(verification is opt-in by committing a lock).
+
 ## Roadmap
 
 | Version | Theme | Scope |
 |---------|-------|-------|
-| **v0.2** | Enforcement | Execute `contract_verification` gates as real subprocesses and return pass/fail evidence — turning "reads the contract" into "enforces the contract" |
+| **v0.2** | Enforcement | Execute `contract_verification` gates as real subprocesses and return pass/fail evidence — turning "reads the contract" into "enforces the contract" — **shipped in 0.2.0**: `agent-conductor verify --run-gates <AGENTS.md>` (also `--require-gates` for the anti-placeholder gate) |
 | **v0.3** | Orchestration | Map contract layers onto CHP `MeshAgent` capabilities (`produces`/`consumes`) and expose full multi-agent deliberation sessions over MCP |
 | **v0.4** | Registry | Install vetted skills from remote catalogs (awesome-agent-skills format) with source-review prompts |
 
