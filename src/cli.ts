@@ -36,7 +36,9 @@ export interface VerifyOptions {
 export const DEFAULT_VERIFY_OPTIONS: VerifyOptions = {
   requireGates: false,
   runGates: false,
-  timeoutPerCommandMs: 300_000,
+  // 120s: most gate commands (type checks, unit suites) finish well under
+  // two minutes; a 300s ceiling only prolongs a hung CI process.
+  timeoutPerCommandMs: 120_000,
 };
 
 function parseArgs(argv: readonly string[]): { path: string; options: VerifyOptions } {
