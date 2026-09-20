@@ -443,14 +443,16 @@ contract": the checklist shell blocks in the AGENTS.md become the CI step.
 This repo's own CI compiles its own `AGENTS.md` this way — the pattern
 source dogfoods the pattern.
 
-**Trust policy for gate execution.** `--run-gates` executes every gate
-command merged into the compiled contract. In a multi-root workspace the
-loader merges gates from ALL declared roots — there is no per-root
-filtering, attribution check, or prompting. Only declare workspace roots
-you fully trust: a third-party module that ships its own AGENTS.md under a
-declared root runs its gate commands in your CI with the same authority as
-your own. The per-command timeout (120s default) bounds hung processes, not
-malicious ones.
+**Trust policy for gate execution.** `--run-gates` executes only the gate
+commands of the single contract file passed on the command line — the CLI
+compiles that file with the single-file parser (`loadContract`); it does
+NOT merge gates from other workspace roots. If you want enforcement across
+a multi-root workspace, run the CLI once per root in CI (this repo's CI
+does exactly that). The workspace compiler (`src/contract/workspace.ts`)
+does merge gates across declared roots when used as a library — that
+surface trusts all declared roots and has no per-root filtering or
+prompting; only point it at roots you fully trust. The per-command timeout
+(120s default) bounds hung processes, not malicious ones.
 
 ## Skills lock (row 23: supply-chain discipline)
 
@@ -479,14 +481,15 @@ skill *content* enters the agent. No lockfile → behavior unchanged
 
 **Threat-model notes — what the lock does and does not cover.**
 
-- Only the skill *body* is digest-verified at load. Frontmatter metadata
-  (name, description, tools list) is never verified — and a router that
-  picks skills by `description` before load can be influenced by tampered
-  metadata even when the body check later rejects the file. The
-  metadata/body boundary is API-level, not file-level: an attacker who can
-  tamper the body can tamper the frontmatter of the same file. Body
-  verification closes the most direct injection path; treat discovery
-  metadata as untrusted input.
+- The digest covers the WHOLE SKILL.md file, frontmatter included: any
+  edit to the frontmatter (description, tools list) changes the digest,
+  and `skill_load` fails with a hash mismatch until the lock is updated.
+  What is *never separately verified* is the metadata at discovery time —
+  a router that picks skills by `description` before load reads unverified
+  frontmatter (in roots without a lockfile, nothing is verified at all).
+  The metadata/body boundary is API-level, not file-level: the lock
+  protects both by hashing the bytes; the distinction only describes which
+  consumers read which part before verification happens.
 - Lock resolution is per-root. `loadSkill` verifies a skill against the
   `skills-lock.json` of the root that *owns* the skill (the allowed root
   containing its path). In multi-root workspaces, roots without their own
