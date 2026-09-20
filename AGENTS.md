@@ -51,7 +51,6 @@ npm run build
 ## Out of scope (unless explicitly requested)
 
 - HTTP/SSE transports (stdio only for now)
-- Executing contract gates as subprocesses (roadmap v0.2)
 - Skill installation from remote catalogs (roadmap v0.4)
 - Rewriting the CHP engine in TypeScript
 

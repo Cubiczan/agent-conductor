@@ -12,6 +12,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { isInside, resolveContained } from "../utils/containedPath.ts";
+import { loadSkillsLock, verifySkillAgainstLock } from "./lock.ts";
 import type { LoadedSkill, SkillMetadata, SkillScope } from "./types.ts";
 
 /** Project-scoped skill directories for one root, in shadowing order. */
@@ -151,6 +152,13 @@ export function loadSkill(metadata: SkillMetadata): LoadedSkill {
   const base = allowed.find((candidate) => isInside(candidate, metadata.path));
   if (!base) {
     throw new Error(`Path is outside the allowed directory: ${metadata.path}`);
+  }
+  // Supply-chain gate (matrix row 23): when the project pins a
+  // skills-lock.json, the body only loads if its bytes match the pinned
+  // digest. No lockfile → unchanged behavior (opt-in verification).
+  const lock = loadSkillsLock(base);
+  if (lock) {
+    verifySkillAgainstLock(metadata, lock, base);
   }
   const { body } = parseFrontmatter(readFileSync(resolveContained(metadata.path, base), "utf8"));
   return { ...metadata, body };

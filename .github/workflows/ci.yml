@@ -47,3 +47,9 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npx tsc --noEmit
       - run: npm test
+      - name: Compile-verify contracts (own + examples)
+        run: |
+          node src/index.ts verify --require-gates AGENTS.md
+          for contract in examples/multimodule/AGENTS.md examples/multimodule/modules/billing/AGENTS.md examples/pipeline-pulse/AGENTS.md examples/safe-autonomous-run/AGENTS.md; do
+            node src/index.ts verify "$contract"
+          done

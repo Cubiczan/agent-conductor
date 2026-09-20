@@ -424,11 +424,92 @@ House rules (the full set is in this repo's own [AGENTS.md](AGENTS.md)):
    upstream except the documented `__init__.py` patch; engine behavior
    changes belong in `bridge.py`.
 
+## Contract verification CLI (row 21: executable contracts)
+
+The same parser that backs `contract_load` is exposed as a CLI subcommand,
+so CI can compile an AGENTS.md fail-closed and (optionally) run the
+verification gates it declares:
+
+```bash
+agent-conductor verify AGENTS.md                  # compile; exit 0/1
+agent-conductor verify --require-gates AGENTS.md  # also fail when the contract
+                                                  # declares no gates (anti-placeholder)
+agent-conductor verify --run-gates AGENTS.md      # run every declared gate
+                                                  # command; exit 1 on failure
+```
+
+`--run-gates` is what turns "reads the contract" into "enforces the
+contract": the checklist shell blocks in the AGENTS.md become the CI step.
+This repo's own CI compiles its own `AGENTS.md` this way — the pattern
+source dogfoods the pattern.
+
+**Trust policy for gate execution.** `--run-gates` executes only the gate
+commands of the single contract file passed on the command line — the CLI
+compiles that file with the single-file parser (`loadContract`); it does
+NOT merge gates from other workspace roots. If you want enforcement across
+a multi-root workspace, run the CLI once per root in CI (this repo's CI
+does exactly that). The workspace compiler (`src/contract/workspace.ts`)
+does merge gates across declared roots when used as a library — that
+surface trusts all declared roots and has no per-root filtering or
+prompting; only point it at roots you fully trust. The per-command timeout
+(120s default) bounds hung processes, not malicious ones.
+
+## Skills lock (row 23: supply-chain discipline)
+
+A project may pin the skills it trusts in a `skills-lock.json` at the
+project root:
+
+```json
+{
+  "version": 1,
+  "skills": {
+    "pipeline-scoring": {
+      "path": ".conductor/skills/pipeline-scoring/SKILL.md",
+      "sha256": "<hex digest of the SKILL.md bytes>"
+    }
+  }
+}
+```
+
+When the lockfile is present, `skill_load` is fail-closed: the SKILL.md
+bytes are hashed (SHA-256) and compared against the pinned digest; a
+missing entry, tampered file, or stale hash refuses the load with a
+`SkillLockError` naming the skill and both digests. Discovery
+(frontmatter only) stays unverified — the threat boundary is the moment
+skill *content* enters the agent. No lockfile → behavior unchanged
+(verification is opt-in by committing a lock).
+
+**Threat-model notes — what the lock does and does not cover.**
+
+- The digest covers the WHOLE SKILL.md file, frontmatter included: any
+  edit to the frontmatter (description, tools list) changes the digest,
+  and `skill_load` fails with a hash mismatch until the lock is updated.
+  What is *never separately verified* is the metadata at discovery time —
+  a router that picks skills by `description` before load reads unverified
+  frontmatter (in roots without a lockfile, nothing is verified at all).
+  The metadata/body boundary is API-level, not file-level: the lock
+  protects both by hashing the bytes; the distinction only describes which
+  consumers read which part before verification happens.
+- Lock resolution is per-root. `loadSkill` verifies a skill against the
+  `skills-lock.json` of the root that *owns* the skill (the allowed root
+  containing its path). In multi-root workspaces, roots without their own
+  lockfile load skills unverified; locks never merge across roots. This is
+  deliberately different from contract-spec compilation, which merges
+  layers across declared roots first-hit-wins — do not assume a lock in one
+  root covers another root's skills.
+
+**Adopting the lock today.** There is no `lock generate` subcommand yet
+(planned: `agent-conductor lock generate` to walk `.conductor/skills/` and
+emit/update `skills-lock.json` using the same `computeLockEntry` the
+verifier uses). Until then, author the lock by hand and pin digests with
+`shasum -a 256 SKILL.md` (or `openssl dgst -sha256`) over the exact
+SKILL.md bytes — the digest is over the whole file, frontmatter included.
+
 ## Roadmap
 
 | Version | Theme | Scope |
 |---------|-------|-------|
-| **v0.2** | Enforcement | Execute `contract_verification` gates as real subprocesses and return pass/fail evidence — turning "reads the contract" into "enforces the contract" |
+| **v0.2** | Enforcement | Execute `contract_verification` gates as real subprocesses and return pass/fail evidence — turning "reads the contract" into "enforces the contract" — **shipped in 0.2.0, CLI delivery scope**: `agent-conductor verify --run-gates <AGENTS.md>` (plus `--require-gates` for the anti-placeholder gate). The `contract_verification` MCP tool still lists gates without executing them — in-session execution evidence is NOT part of 0.2.0; it needs an explicit consent/sandboxing model before side-effectful execution lands on the MCP surface |
 | **v0.3** | Orchestration | Map contract layers onto CHP `MeshAgent` capabilities (`produces`/`consumes`) and expose full multi-agent deliberation sessions over MCP |
 | **v0.4** | Registry | Install vetted skills from remote catalogs (awesome-agent-skills format) with source-review prompts |
 
